@@ -14,6 +14,10 @@ export function MoveItem(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['MoveItem'](arg1, arg2, arg3, arg4);
 }
 
+export function ShowWindow() {
+  return window['go']['main']['App']['ShowWindow']();
+}
+
 export function UpdatePosition(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['UpdatePosition'](arg1, arg2, arg3, arg4);
 }

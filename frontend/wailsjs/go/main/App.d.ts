@@ -7,4 +7,6 @@ export function GetPosition():Promise<{[key: string]: any}>;
 
 export function MoveItem(arg1:number,arg2:number,arg3:number,arg4:number):Promise<void>;
 
+export function ShowWindow():Promise<void>;
+
 export function UpdatePosition(arg1:number,arg2:number,arg3:number,arg4:number):Promise<void>;
