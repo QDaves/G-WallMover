@@ -16,7 +16,7 @@ var assets embed.FS
 var ext = g.NewExt(g.ExtInfo{
 	Title:       "G-WallMover",
 	Description: "Move wall items in Origins",
-	Version:     "1.0",
+	Version:     "1.1",
 	Author:      "QDave",
 })
 
