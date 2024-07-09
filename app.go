@@ -24,6 +24,7 @@ var app *App
 
 func main() {
 	app = NewApp(ext, assets)
+<<<<<<< HEAD
 	setupExt()
 	err := wails.Run(&options.App{
 		Title:  "G-WallMover",
@@ -33,16 +34,32 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 44, G: 62, B: 80, A: 1},
+=======
+
+	setupExtension()
+
+	err := wails.Run(&options.App{
+		Title:  "G-WallMover",
+		Width:  355,
+		Height: 738,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+>>>>>>> 6d9554d632396d8767a32690167928b9484ee64f
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
 		},
 		StartHidden:       true,
 		HideWindowOnClose: true,
+<<<<<<< HEAD
 		MinWidth:          355,
 		MaxWidth:          355,
 		MinHeight:         481,
 		MaxHeight:         481,
+=======
+>>>>>>> 6d9554d632396d8767a32690167928b9484ee64f
 	})
 
 	if err != nil {
@@ -50,7 +67,11 @@ func main() {
 	}
 }
 
+<<<<<<< HEAD
 func setupExt() {
+=======
+func setupExtension() {
+>>>>>>> 6d9554d632396d8767a32690167928b9484ee64f
 	ext.Initialized(func(e g.InitArgs) {
 		log.Printf("initialized (connected=%t)", e.Connected)
 	})
