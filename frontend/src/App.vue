@@ -1,38 +1,54 @@
 <template>
-  <div class="container">
-    <h1>G-WallMover</h1>
-    <div class="input-group">
+  <div class="box">
+    <h1>G-Wall Mover</h1>
+    <div class="row">
       <label for="l1">L1:</label>
-      <input type="number" id="l1" v-model="l1" @wheel="handleWheel($event, 'l1')">
+      <div class="numpad">
+        <button @click="tweak('l1', -step)" class="btn left">-</button>
+        <span @wheel="spin($event, 'l1')">{{ l1 }}</span>
+        <button @click="tweak('l1', step)" class="btn right">+</button>
+      </div>
     </div>
-    <div class="input-group">
+    <div class="row">
       <label for="l2">L2:</label>
-      <input type="number" id="l2" v-model="l2" @wheel="handleWheel($event, 'l2')">
+      <div class="numpad">
+        <button @click="tweak('l2', -step)" class="btn left">-</button>
+        <span @wheel="spin($event, 'l2')">{{ l2 }}</span>
+        <button @click="tweak('l2', step)" class="btn right">+</button>
+      </div>
     </div>
-    <div class="input-group">
-      <label for="stepSize">Step Size:</label>
-      <select id="stepSize" v-model="stepSize">
-        <option v-for="size in stepSizes" :key="size" :value="size">+{{ size }}</option>
+    <div class="row">
+      <button @click="flipw" class="flip">W1/W2</button>
+      <div v-if="showw" class="wbox">
+        <div class="numpad tiny">
+          <label for="w1">W1:</label>
+          <button @click="tweak('w1', -1)" class="btn left">-</button>
+          <span @wheel="spin($event, 'w1')">{{ w1 }}</span>
+          <button @click="tweak('w1', 1)" class="btn right">+</button>
+        </div>
+        <div class="numpad tiny">
+          <label for="w2">W2:</label>
+          <button @click="tweak('w2', -1)" class="btn left">-</button>
+          <span @wheel="spin($event, 'w2')">{{ w2 }}</span>
+          <button @click="tweak('w2', 1)" class="btn right">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <label for="step">Step size:</label>
+      <select id="step" v-model="step">
+        <option v-for="s in steps" :key="s" :value="s">{{ s }}</option>
       </select>
     </div>
-    <button @click="moveItem">Move Wall-Furni</button>
-    <button @click="toggleAdvanced">{{ showAdvanced ? 'Hide' : 'Show' }} W1/W2 Settings</button>
-    <div v-if="showAdvanced">
-      <div class="input-group">
-        <label for="w1">W1:</label>
-        <input type="number" id="w1" v-model="w1" readonly>
-      </div>
-      <div class="input-group">
-        <label for="w2">W2:</label>
-        <input type="number" id="w2" v-model="w2" readonly>
-      </div>
+    <div class="tip">Scroll above values or use buttons</div>
+    <div id="log" ref="logbox">
+      <div v-for="(msg, index) in log" :key="index">{{ msg }}</div>
     </div>
-    <div id="log" v-html="logHtml"></div>
   </div>
 </template>
 
 <script>
-import { MoveItem, UpdatePosition, GetPosition, AddLogMessage } from '../wailsjs/go/main/App'
+import { UpdatePosition, GetPosition, MoveItem } from '../wailsjs/go/main/App'
 
 export default {
   data() {
@@ -41,52 +57,53 @@ export default {
       l2: 0,
       w1: 0,
       w2: 0,
-      stepSize: 5,
-      stepSizes: [1, 5, 10, 15, 20, 30, 40, 50],
-      showAdvanced: false,
+      step: 5,
+      steps: [1, 5, 10, 15, 20, 30, 40, 50],
       log: [],
-      lastUpdate: 0,
-      debounceTime: 100
-    }
-  },
-  computed: {
-    logHtml() {
-      return this.log.map(msg => `<div>${msg}</div>`).join('')
+      timer: null,
+      showw: false
     }
   },
   methods: {
-    async moveItem() {
-      await MoveItem(parseInt(this.l1), parseInt(this.l2), parseInt(this.w1), parseInt(this.w2))
+    tweak(field, delta) {
+      this[field] += delta
+      this.sync()
     },
-    async updatePosition() {
-      await UpdatePosition(parseInt(this.l1), parseInt(this.l2), parseInt(this.w1), parseInt(this.w2))
-    },
-    toggleAdvanced() {
-      this.showAdvanced = !this.showAdvanced
-    },
-    handleWheel(e, id) {
+    spin(e, field) {
       e.preventDefault()
-      const now = Date.now()
-      if (now - this.lastUpdate < this.debounceTime) return
-      this.lastUpdate = now
-      const delta = e.deltaY > 0 ? -this.stepSize : this.stepSize
-      this[id] = parseInt(this[id] || 0) + delta
-      this.updatePosition()
+      const delta = e.deltaY > 0 ? -this.step : this.step
+      this[field] += delta
+      this.sync()
     },
-    async getPosition() {
-      const position = await GetPosition()
-      this.w1 = position.W1
-      this.w2 = position.W2
-      this.l1 = position.L1
-      this.l2 = position.L2
-      AddLogMessage(`Current position: w=${position.W1},${position.W2} l=${position.L1},${position.L2} ${position.Direction}`)
+    sync() {
+      UpdatePosition(this.l1, this.l2, this.w1, this.w2)
+      if (this.timer) clearTimeout(this.timer)
+      this.timer = setTimeout(() => {
+        MoveItem(this.l1, this.l2, this.w1, this.w2)
+      }, 1500)
+    },
+    async fetch() {
+      const pos = await GetPosition()
+      this.w1 = pos.W1
+      this.w2 = pos.W2
+      this.l1 = pos.L1
+      this.l2 = pos.L2
+    },
+    flipw() {
+      this.showw = !this.showw
+    },
+    scrolldown() {
+      this.$nextTick(() => {
+        const box = this.$refs.logbox
+        box.scrollTop = box.scrollHeight
+      })
     }
   },
   mounted() {
-    this.getPosition()
+    this.fetch()
     window.runtime.EventsOn("logUpdate", (message) => {
-      this.log.push(message)
-      if (this.log.length > 5) this.log.shift()
+      this.log = message.split('\n')
+      this.scrolldown()
     })
     window.runtime.EventsOn("positionUpdate", (pos) => {
       this.w1 = pos.W1
@@ -100,112 +117,155 @@ export default {
 
 <style>
 body {
-    font-family: Arial, sans-serif;
-    background-color: #1e1e1e;
-    color: #e0e0e0;
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start;
-    min-height: 100vh;
-    margin: 0;
-    padding: 20px;
-    box-sizing: border-box;
-    overflow: hidden;
+  font-family: sans-serif;
+  background-color: #1e1e1e;
+  color: #fff;
+  margin: 0;
+  padding: 0;
 }
-.container {
-    background-color: #2d2d2d;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    width: 300px;
-    max-height: 100vh;
-    display: flex;
-    flex-direction: column;
+
+.box {
+  background-color: #2a2a2a;
+  padding: 20px;
+  width: 300px;
+  position: fixed;
+  top: 0;
+  left: 0;
 }
+
 h1 {
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 24px;
-    color: #4CAF50;
+  text-align: center;
+  color: #4CAF50;
+  margin-bottom: 20px;
+  font-size: 20px;
 }
-.input-group {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
 }
+
 label {
-    margin-right: 10px;
-    font-weight: bold;
+  font-weight: bold;
+  margin-right: 10px;
 }
-input, select {
-    width: 100px;
-    background-color: #3d3d3d;
-    color: #e0e0e0;
-    border: 1px solid #555;
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 14px;
-    transition: border-color 0.3s, box-shadow 0.3s;
+
+.numpad {
+  display: flex;
+  align-items: center;
 }
-input:focus, select:focus {
-    outline: none;
-    border-color: #4CAF50;
-    box-shadow: 0 0 5px rgba(76,175,80,0.5);
+
+.numpad span {
+  width: 40px;
+  text-align: center;
+  user-select: none;
+  cursor: ns-resize;
 }
-input[type="number"] {
-    -moz-appearance: textfield;
+
+.btn {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 4px;
 }
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+
+.btn:hover {
+  background-color: #45a049;
 }
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+.btn.left {
+  margin-right: 2px;
+}
+
+.btn.right {
+  margin-left: 2px;
+}
+
 select {
-    width: auto;
-    cursor: pointer;
+  background-color: #3a3a3a;
+  color: white;
+  border: 1px solid #4CAF50;
+  padding: 5px;
+  border-radius: 5px;
 }
-button {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    text-align: center;
-    display: block;
-    font-size: 16px;
-    margin: 20px auto;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background-color 0.3s, transform 0.1s;
+
+.flip {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s;
 }
-button:hover {
-    background-color: #45a049;
+
+.flip:hover {
+  background-color: #45a049;
 }
-button:active {
-    transform: scale(0.98);
+
+.wbox {
+  display: flex;
+  gap: 10px;
+  margin-left: 10px;
 }
+
+.wbox .numpad {
+  flex-direction: row;
+  align-items: center;
+}
+
+.wbox label {
+  margin-right: 5px;
+}
+
+.numpad.tiny span {
+  width: 30px;
+  font-size: 12px;
+}
+
+.numpad.tiny .btn {
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+}
+
+.tip {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
 #log {
-    margin-top: 20px;
-    height: 150px;
-    background-color: #3d3d3d;
-    padding: 10px;
-    border-radius: 4px;
-    font-size: 14px;
-    line-height: 1.4;
-    border: 1px solid #555;
-    overflow-y: auto;
+  height: 150px;
+  overflow-y: auto;
+  background-color: #3a3a3a;
+  border: 1px solid #4CAF50;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 12px;
 }
-#log:empty::before {
-    content: "No log entries yet.";
-    color: #888;
-    font-style: italic;
-}
-#log div {
-    margin-bottom: 5px;
-    border-bottom: 1px solid #555;
-    padding-bottom: 5px;
-}
-#log div:last-child {
-    border-bottom: none;
+
+#log::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
 }
 </style>

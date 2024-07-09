@@ -23,14 +23,15 @@ type App struct {
 		W1, W2, L1, L2 int
 		Direction      string
 	}
-	furniID         string
-	logMessages     []string
-	logMu           sync.Mutex
-	lastActionTime  time.Time
-	packetStructure string
-	captureMode     bool
-	captureMu       sync.Mutex
-	ctx             context.Context
+	furniID     string
+	log         []string
+	logMu       sync.Mutex
+	lastAction  time.Time
+	packetStr   string
+	captureMode bool
+	captureMu   sync.Mutex
+	ctx         context.Context
+	moveTimer   *time.Timer
 }
 
 func NewApp(ext *g.Ext, assets embed.FS) *App {
@@ -42,19 +43,19 @@ func NewApp(ext *g.Ext, assets embed.FS) *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.setupExtension()
-	go a.runExtension()
+	a.setupExt()
+	go a.runExt()
 }
 
-func (a *App) setupExtension() {
+func (a *App) setupExt() {
 	a.ext.Intercept(out.CHAT).With(a.handleTalk)
 	a.ext.Intercept(out.SHOUT).With(a.handleTalk)
-	a.ext.Intercept(in.ITEMS_2).With(a.handleItems2Packet)
-	a.ext.Intercept(in.UPDATEITEM).With(a.handleUpdateItemPacket)
+	a.ext.Intercept(in.ITEMS_2).With(a.handleItems2)
+	a.ext.Intercept(in.UPDATEITEM).With(a.handleUpdateItem)
 	a.ext.Intercept(out.ADDSTRIPITEM).With(a.handleAddStripItem)
 }
 
-func (a *App) runExtension() {
+func (a *App) runExt() {
 	a.ext.Run()
 	log.Println("running")
 }
@@ -63,42 +64,44 @@ func (a *App) ShowWindow() {
 	runtime.WindowShow(a.ctx)
 }
 
-func (a *App) MoveItem(l1, l2, w1, w2 int) {
-	if a.furniID == "" {
-		a.AddLogMessage("Place some wall furni first")
-		return
-	}
-
-	a.pos.L1 = l1
-	a.pos.L2 = l2
-	a.pos.W1 = w1
-	a.pos.W2 = w2
-
-	a.removeWallItem()
-	a.placeWallItem()
-	a.AddLogMessage("Moved wall item")
-	a.lastActionTime = time.Now()
-}
-
 func (a *App) UpdatePosition(l1, l2, w1, w2 int) {
 	a.pos.L1 = l1
 	a.pos.L2 = l2
 	a.pos.W1 = w1
 	a.pos.W2 = w2
 
-	updatedPacket := a.updatePacketStructure()
-	a.ext.Send(in.ITEMS_2, []byte(updatedPacket))
-	a.AddLogMessage(fmt.Sprintf("position: w=%d,%d l=%d,%d %s", a.pos.W1, a.pos.W2, a.pos.L1, a.pos.L2, a.pos.Direction))
+	updatedPacket := a.updatePacketStr()
+	a.ext.Send(in.UPDATEITEM, []byte(updatedPacket))
+	a.AddLogMsg(fmt.Sprintf("Updated Location: w=%d,%d l=%d,%d %s", a.pos.W1, a.pos.W2, a.pos.L1, a.pos.L2, a.pos.Direction))
+
+	if a.moveTimer != nil {
+		a.moveTimer.Stop()
+	}
+	a.moveTimer = time.AfterFunc(1500*time.Millisecond, a.moveWallItem)
 }
 
-func (a *App) AddLogMessage(message string) {
+func (a *App) moveWallItem() {
+	placestuffData := fmt.Sprintf(":w=%d,%d l=%d,%d %s", a.pos.W1, a.pos.W2, a.pos.L1, a.pos.L2, a.pos.Direction)
+	numFurniID, _ := strconv.Atoi(a.furniID)
+	a.ext.Send(g.Out.Id("MOVEITEM"), numFurniID, placestuffData)
+}
+
+func (a *App) MoveItem(l1, l2, w1, w2 int) {
+	a.pos.L1 = l1
+	a.pos.L2 = l2
+	a.pos.W1 = w1
+	a.pos.W2 = w2
+	a.moveWallItem()
+}
+
+func (a *App) AddLogMsg(msg string) {
 	a.logMu.Lock()
 	defer a.logMu.Unlock()
-	a.logMessages = append(a.logMessages, message)
-	if len(a.logMessages) > 100 {
-		a.logMessages = a.logMessages[1:]
+	a.log = append(a.log, msg)
+	if len(a.log) > 100 {
+		a.log = a.log[1:]
 	}
-	runtime.EventsEmit(a.ctx, "logUpdate", strings.Join(a.logMessages, "\n"))
+	runtime.EventsEmit(a.ctx, "logUpdate", strings.Join(a.log, "\n"))
 }
 
 func (a *App) GetPosition() map[string]interface{} {
@@ -112,36 +115,36 @@ func (a *App) GetPosition() map[string]interface{} {
 }
 
 func (a *App) handleTalk(e *g.InterceptArgs) {
-	message := e.Packet.ReadString()
-	if message == "#wallmover" {
+	msg := e.Packet.ReadString()
+	if msg == "#wallmover" {
 		runtime.WindowShow(a.ctx)
 		e.Block()
 	}
 }
 
-func (a *App) handleItems2Packet(e *g.InterceptArgs) {
-	a.packetStructure = e.Packet.ReadString()
-	a.handleItemPacket(a.packetStructure, "Item placed")
+func (a *App) handleItems2(e *g.InterceptArgs) {
+	a.packetStr = e.Packet.ReadString()
+	a.handleItemPacket(a.packetStr, "Item placed")
 }
 
-func (a *App) handleUpdateItemPacket(e *g.InterceptArgs) {
-	a.packetStructure = e.Packet.ReadString()
-	a.handleItemPacket(a.packetStructure, "New Item ID Applied")
+func (a *App) handleUpdateItem(e *g.InterceptArgs) {
+	a.packetStr = e.Packet.ReadString()
+	a.handleItemPacket(a.packetStr, "Item updated")
 }
 
-func (a *App) handleItemPacket(packetStructure string, actionType string) {
-	parts := strings.Split(packetStructure, "\t")
+func (a *App) handleItemPacket(packetStr, actionType string) {
+	parts := strings.Split(packetStr, "\t")
 	if len(parts) < 5 {
 		return
 	}
-	newFurniID := parts[0]
-	position := parts[3]
-	positionParts := strings.Fields(position)
+	newID := parts[0]
+	pos := parts[3]
+	posParts := strings.Fields(pos)
 	var newPos struct {
 		W1, W2, L1, L2 int
 		Direction      string
 	}
-	for _, part := range positionParts {
+	for _, part := range posParts {
 		if strings.HasPrefix(part, ":w=") {
 			wParts := strings.Split(strings.TrimPrefix(part, ":w="), ",")
 			if len(wParts) == 2 {
@@ -158,11 +161,11 @@ func (a *App) handleItemPacket(packetStructure string, actionType string) {
 			newPos.Direction = part
 		}
 	}
-	if time.Since(a.lastActionTime) >= 2*time.Second && (newFurniID != a.furniID || newPos != a.pos) {
-		a.furniID = newFurniID
+	if time.Since(a.lastAction) >= 2*time.Second && (newID != a.furniID || newPos != a.pos) {
+		a.furniID = newID
 		a.pos = newPos
 		runtime.EventsEmit(a.ctx, "positionUpdate", a.pos)
-		a.AddLogMessage(fmt.Sprintf("%s: ID %s, Position: w=%d,%d l=%d,%d %s",
+		a.AddLogMsg(fmt.Sprintf("%s: ID %s, Position: w=%d,%d l=%d,%d %s",
 			actionType, a.furniID, a.pos.W1, a.pos.W2, a.pos.L1, a.pos.L2, a.pos.Direction))
 	}
 }
@@ -176,26 +179,17 @@ func (a *App) handleAddStripItem(e *g.InterceptArgs) {
 		parts := strings.Split(packetContent, " ")
 		if len(parts) >= 3 {
 			a.furniID = parts[2]
-			a.AddLogMessage(fmt.Sprintf("Captured furni ID: %s", a.furniID))
+			a.AddLogMsg(fmt.Sprintf("Captured furni ID: %s", a.furniID))
 		}
 		return
 	}
 	a.captureMu.Unlock()
 }
 
-func (a *App) removeWallItem() {
-	a.ext.Send(out.ADDSTRIPITEM, []byte("new item "+a.furniID))
-}
-
-func (a *App) placeWallItem() {
-	placestuffData := fmt.Sprintf("%s :w=%d,%d l=%d,%d %s", a.furniID, a.pos.W1, a.pos.W2, a.pos.L1, a.pos.L2, a.pos.Direction)
-	a.ext.Send(out.PLACESTUFF, []byte(placestuffData))
-}
-
-func (a *App) updatePacketStructure() string {
-	parts := strings.Split(a.packetStructure, "\t")
+func (a *App) updatePacketStr() string {
+	parts := strings.Split(a.packetStr, "\t")
 	if len(parts) < 5 {
-		return a.packetStructure
+		return a.packetStr
 	}
 	parts[3] = fmt.Sprintf(":w=%d,%d l=%d,%d %s", a.pos.W1, a.pos.W2, a.pos.L1, a.pos.L2, a.pos.Direction)
 	return strings.Join(parts, "\t")
