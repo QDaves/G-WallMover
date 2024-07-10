@@ -4,7 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,7 +44,10 @@ func NewApp(ext *g.Ext, assets embed.FS) *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.setupExt()
-	go a.runExt()
+	go func() {
+		a.runExt()
+		os.Exit(0)
+	}()
 }
 
 func (a *App) setupExt() {
@@ -57,7 +60,6 @@ func (a *App) setupExt() {
 
 func (a *App) runExt() {
 	a.ext.Run()
-	log.Println("running")
 }
 
 func (a *App) ShowWindow() {
