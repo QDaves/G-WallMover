@@ -46,7 +46,6 @@ func (a *App) startup(ctx context.Context) {
 	a.setupExt()
 	go func() {
 		a.runExt()
-		os.Exit(0)
 	}()
 }
 
@@ -59,6 +58,7 @@ func (a *App) setupExt() {
 }
 
 func (a *App) runExt() {
+	defer os.Exit(0)
 	a.ext.Run()
 }
 
