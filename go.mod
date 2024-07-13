@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	github.com/wailsapp/wails/v2 v2.9.1
-	xabbo.b7c.io/goearth v0.2.3
+	xabbo.b7c.io/goearth v0.2.6
 )
 
 require (
