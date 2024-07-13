@@ -3,10 +3,22 @@
 
 export function AddLogMsg(arg1:string):Promise<void>;
 
+export function ClearCapturedItems():Promise<void>;
+
 export function GetPosition():Promise<{[key: string]: any}>;
+
+export function MoveAllItems():Promise<void>;
 
 export function MoveItem(arg1:number,arg2:number,arg3:number,arg4:number):Promise<void>;
 
 export function ShowWindow():Promise<void>;
+
+export function ToggleListening(arg1:boolean):Promise<void>;
+
+export function ToggleMode(arg1:boolean):Promise<void>;
+
+export function UpdateDiffLocation(arg1:number,arg2:number):Promise<void>;
+
+export function UpdateMainLocation(arg1:number,arg2:number,arg3:number,arg4:number):Promise<void>;
 
 export function UpdatePosition(arg1:number,arg2:number,arg3:number,arg4:number):Promise<void>;

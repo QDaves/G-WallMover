@@ -6,8 +6,16 @@ export function AddLogMsg(arg1) {
   return window['go']['main']['App']['AddLogMsg'](arg1);
 }
 
+export function ClearCapturedItems() {
+  return window['go']['main']['App']['ClearCapturedItems']();
+}
+
 export function GetPosition() {
   return window['go']['main']['App']['GetPosition']();
+}
+
+export function MoveAllItems() {
+  return window['go']['main']['App']['MoveAllItems']();
 }
 
 export function MoveItem(arg1, arg2, arg3, arg4) {
@@ -16,6 +24,22 @@ export function MoveItem(arg1, arg2, arg3, arg4) {
 
 export function ShowWindow() {
   return window['go']['main']['App']['ShowWindow']();
+}
+
+export function ToggleListening(arg1) {
+  return window['go']['main']['App']['ToggleListening'](arg1);
+}
+
+export function ToggleMode(arg1) {
+  return window['go']['main']['App']['ToggleMode'](arg1);
+}
+
+export function UpdateDiffLocation(arg1, arg2) {
+  return window['go']['main']['App']['UpdateDiffLocation'](arg1, arg2);
+}
+
+export function UpdateMainLocation(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateMainLocation'](arg1, arg2, arg3, arg4);
 }
 
 export function UpdatePosition(arg1, arg2, arg3, arg4) {

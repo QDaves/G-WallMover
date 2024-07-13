@@ -16,7 +16,7 @@ var assets embed.FS
 var ext = g.NewExt(g.ExtInfo{
 	Title:       "G-WallMover",
 	Description: "Move wall items in Origins",
-	Version:     "1.2",
+	Version:     "1.4",
 	Author:      "QDave",
 })
 
@@ -27,8 +27,8 @@ func main() {
 	setupExt()
 	err := wails.Run(&options.App{
 		Title:  "G-WallMover",
-		Width:  355,
-		Height: 481,
+		Width:  345,
+		Height: 620,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -39,10 +39,11 @@ func main() {
 		},
 		StartHidden:       true,
 		HideWindowOnClose: true,
-		MinWidth:          355,
-		MaxWidth:          355,
-		MinHeight:         481,
-		MaxHeight:         481,
+		DisableResize:     true,
+		MinWidth:          345,
+		MaxWidth:          345,
+		MinHeight:         620,
+		MaxHeight:         620,
 	})
 
 	if err != nil {
